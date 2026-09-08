@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Charge Tracker Pro</title>
+  <meta name="theme-color" content="#10b981">
+  <link rel="manifest" href="data:application/json,{%22name%22:%22Charge%20Tracker%20Pro%22,%22short_name%22:%22ChargeTracker%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22#0f172a%22,%22theme_color%22:%22#10b981%22}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js Library CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 max-w-md mx-auto flex flex-col relative">
+
+  <!-- Toast Notification Popup -->
+  <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 bg-emerald-500 text-slate-950 font-bold px-4 py-2 rounded-lg shadow-lg opacity-0 transition-all duration-300 pointer-events-none z-50 text-xs flex items-center gap-1.5">
+    <span>✅</span> <span id="toastMsg">Data has been logged!</span>
+  </div>
+
+  <!-- User Guide Modal Overlay -->
+  <div id="guideModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl">
+      <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+        <h2 class="text-sm font-bold text-emerald-400 flex items-center gap-1.5">📖 Charge Tracker Pro User Guide</h2>
+        <button onclick="toggleGuide()" class="text-slate-400 hover:text-slate-200 font-bold text-base">✕</button>
+      </div>
+      <div class="p-4 overflow-y-auto space-y-4 text-xs text-slate-300">
+        
+        <section class="space-y-1">
+          <h3 class="font-bold text-slate-100 text-xs">🚀 1. System Configurations</h3>
+          <p class="text-slate-400">Tap <span class="text-emerald-400 font-semibold">⚙️ System Configurations</span> on the Ride Log tab to customize:</p>
+          <ul class="list-disc list-inside space-y-0.5 text-slate-400 pl-1">
+            <li><strong class="text-slate-200">Battery Setup:</strong> Choose 1 or 2 Battery Packs.</li>
+            <li><strong class="text-slate-200">Baseline ODO:</strong> Your starting odometer reading.</li>
+            <li><strong class="text-slate-200">Charger & Rate:</strong> Input wattage and local ₱/kWh electricity rate.</li>
+          </ul>
+        </section>
+
+        <section class="space-y-1 border-t border-slate-800 pt-3">
+          <h3 class="font-bold text-slate-100 text-xs">🔋 2. Logging Rides & Recharges</h3>
+          <p><strong class="text-emerald-400">Regular Ride:</strong> Enter ending battery % for Pack A/B and Current ODO. Review calculated trip stats and tap <span class="text-emerald-400 font-semibold">💾 Log Ride & Charge Event</span>.</p>
+          <p><strong class="text-emerald-400">Full Recharge:</strong> Check <span class="text-emerald-400 font-semibold">⚡ Full Charge Reset</span>. Optionally enter actual meter kWh, then log. Baseline battery resets to 100% for next trip.</p>
+        </section>
+
+        <section class="space-y-1 border-t border-slate-800 pt-3">
+          <h3 class="font-bold text-slate-100 text-xs">⚠️ 3. BMS Imbalance Alert</h3>
+          <p class="text-slate-400">Appears if Pack A and Pack B differ by <strong class="text-amber-400">5% or more</strong>. Perform a 100% full recharge to re-balance battery cells.</p>
+        </section>
+
+        <section class="space-y-1 border-t border-slate-800 pt-3">
+          <h3 class="font-bold text-slate-100 text-xs">📊 4. History & Analytics</h3>
+          <p class="text-slate-400"><strong class="text-slate-200">History Tab:</strong> Review aggregate stats, monthly breakdowns, and delete entries if needed.</p>
+          <p class="text-slate-400"><strong class="text-slate-200">Analytics Tab:</strong> View trend graphs for efficiency (%/km) and trip distances.</p>
+        </section>
+
+        <section class="space-y-1 border-t border-slate-800 pt-3">
+          <h3 class="font-bold text-slate-100 text-xs">💾 5. Data Backup & Restore</h3>
+          <p class="text-slate-400">Use <strong class="text-amber-400">📂 Restore</strong> to load past backup files, <strong class="text-slate-200">💾 Backup</strong> to save JSON database copies, or <strong class="text-emerald-400">📥 CSV</strong> for Excel spreadsheets.</p>
+        </section>
+
+      </div>
+      <div class="p-3 border-t border-slate-800 text-center">
+        <button onclick="toggleGuide()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 px-6 rounded-lg text-xs transition">Got it!</button>
+      </div>
+    </div>
+  </div>
+
+  <header class="mb-3 border-b border-slate-700 pb-3 flex flex-col items-center text-center gap-2">
+    <div>
+      <h1 class="text-xl font-bold text-emerald-400">⚡ Charge Tracker Pro</h1>
+      <p class="text-xs text-slate-400"> By: Daily E-Ride </p>
+    </div>
+    
+  </header>
+
+  <!-- 3-Column Navigation Tabs -->
+  <nav class="grid grid-cols-3 gap-1 mb-4 bg-slate-800/80 p-1 rounded-lg border border-slate-700">
+    <button id="tabBtnCalc" onclick="switchTab('calc')" class="py-2 text-[11px] font-bold rounded-md transition text-emerald-400 bg-slate-900 border border-slate-700">
+      🔋 Ride Log
+    </button>
+    <button id="tabBtnHistory" onclick="switchTab('history')" class="py-2 text-[11px] font-bold rounded-md transition text-slate-400 hover:text-slate-200">
+      📊 History & Fleet
+    </button>
+    <button id="tabBtnChart" onclick="switchTab('chart')" class="py-2 text-[11px] font-bold rounded-md transition text-slate-400 hover:text-slate-200">
+      📈 Analytics
+    </button>
+  </nav>
+
+  <!-- TAB 1: RIDE LOG & CALCULATOR -->
+  <div id="tabContentCalc" class="space-y-4">
+
+    <!-- Scooter Config Settings -->
+    <details class="bg-slate-800 rounded-lg p-3 border border-slate-700">
+      <summary class="font-semibold text-slate-300 cursor-pointer text-xs">⚙️ System Configurations</summary>
+      <div class="grid grid-cols-2 gap-2 mt-2 text-xs">
+          <div class="col-span-2 flex justify-center items-center gap-1.5 whitespace-nowrap overflow-x-auto py-1">
+  <button onclick="toggleGuide()" class="bg-slate-800 border border-slate-600 text-[11px] text-sky-400 px-2 py-1 rounded hover:bg-slate-700">
+    ❓ Guide
+  </button>
+  <input type="file" id="importFile" accept=".json" class="hidden" onchange="importJSON(event)">
+  <button onclick="$('importFile').click()" class="bg-slate-800 border border-slate-600 text-[11px] text-amber-400 px-2 py-1 rounded hover:bg-slate-700">
+    📂 Restore
+  </button>
+  <button onclick="exportJSON()" class="bg-slate-800 border border-slate-600 text-[11px] text-slate-300 px-2 py-1 rounded hover:bg-slate-700">
+    💾 Backup
+  </button>
+  <button onclick="exportCSV()" class="bg-slate-800 border border-slate-600 text-[11px] text-emerald-400 px-2 py-1 rounded hover:bg-slate-700">
+    📥 CSV
+  </button>
+</div>
+        <div class="col-span-2">
+          <label class="text-slate-400">Battery Setup</label>
+          <select id="packMode" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-emerald-400 font-bold">
+            <option value="2">2 Battery Packs (3.0 kWh)</option>
+            <option value="1">1 Battery Pack (1.5 kWh)</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-slate-400">Baseline ODO (km)</label>
+          <input type="number" id="configBaselineOdo" value="214.00" step="0.1" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-emerald-400 font-semibold">
+        </div>
+        <div>
+          <label class="text-slate-400">Capacity (kWh)</label>
+          <input type="number" id="capacity" value="3.0" step="0.1" readonly class="w-full bg-slate-900/50 text-slate-400 border border-slate-700 rounded p-1.5 cursor-not-allowed">
+        </div>
+        <div>
+          <label class="text-slate-400">Charger (W)</label>
+          <input type="number" id="chargerW" value="400" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-emerald-400">
+        </div>
+        <div>
+          <label class="text-slate-400">Efficiency (%)</label>
+          <input type="number" id="efficiency" value="88" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-emerald-400">
+        </div>
+        <div class="col-span-2">
+          <label class="text-slate-400">Rate (₱/kWh)</label>
+          <input type="number" id="rate" value="15.97" step="0.01" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-emerald-400">
+        </div>
+      </div>
+    </details>
+      
+    <!-- Fleet Aggregates Summary Bar (Tab 1) -->
+    <section class="bg-slate-800 rounded-lg p-3 border border-slate-700">
+      <h2 class="font-bold text-slate-300 text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5">📊 Fleet Aggregates</h2>
+      <div class="grid grid-cols-4 gap-1 text-center text-xs">
+        <div class="bg-slate-900/80 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[9px]">Total Dist</span>
+          <span class="totalDistanceVal text-xs font-bold text-emerald-400">0.00 km</span>
+        </div>
+        <div class="bg-slate-900/80 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[9px]">Total Consumed</span>
+          <span class="totalConsCostVal text-xs font-bold text-sky-400">₱0.00</span>
+        </div>
+        <div class="bg-slate-900/80 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[9px]">Avg Efficiency</span>
+          <span class="avgEffVal text-xs font-bold text-emerald-400">0.00 %/km</span>
+        </div>
+        <div class="bg-slate-900/80 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[9px]">Avg Cost Rate</span>
+          <span class="avgCostPerKmVal text-xs font-bold text-amber-400">₱0.00/km</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Real-time Calculator Section -->
+    <section class="bg-slate-800 rounded-lg p-4 border border-slate-700 space-y-3">
+      <h2 class="font-bold text-emerald-400 text-sm">🔋 Current Ride & Charge Calculator</h2>
+      
+      <!-- Battery Input Area -->
+      <div id="packInputsGrid" class="grid grid-cols-2 gap-2 text-xs">
+        <div id="packAContainer">
+          <label id="packALabel" class="text-slate-400">Pack A %</label>
+          <input type="number" id="packA" value="34" min="0" max="100" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm">
+          
+          <!-- Quick Controls Pack A -->
+          <div class="flex gap-1 mt-1.5">
+            <button type="button" onclick="adjustPack('packA', -5)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">-5%</button>
+            <button type="button" onclick="adjustPack('packA', -1)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">-1%</button>
+            <button type="button" onclick="adjustPack('packA', 1)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">+1%</button>
+            <button type="button" onclick="adjustPack('packA', 5)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">+5%</button>
+          </div>
+        </div>
+
+        <div id="packBContainer">
+          <label class="text-slate-400">Pack B %</label>
+          <input type="number" id="packB" value="34" min="0" max="100" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm">
+          
+          <!-- Quick Controls Pack B -->
+          <div class="flex gap-1 mt-1.5">
+            <button type="button" onclick="adjustPack('packB', -5)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">-5%</button>
+            <button type="button" onclick="adjustPack('packB', -1)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">-1%</button>
+            <button type="button" onclick="adjustPack('packB', 1)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">+1%</button>
+            <button type="button" onclick="adjustPack('packB', 5)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">+5%</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 text-xs pt-1">
+        <div>
+          <label class="text-slate-400">Prev ODO (km)</label>
+          <input type="number" id="prevOdo" value="214.00" step="0.1" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm">
+        </div>
+        <div>
+          <label class="text-slate-400">Current ODO (km)</label>
+          <input type="number" id="currOdo" value="237.00" step="0.1" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm">
+        </div>
+      </div>
+
+      <div class="bg-slate-900/80 p-2.5 rounded border border-slate-700/80 text-xs flex justify-between items-center">
+        <div>
+          <span class="block text-slate-400">Baseline Starting Battery</span>
+          <span id="startPctDisplay" class="text-emerald-400 font-bold">100.00%</span>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer bg-slate-800 px-2.5 py-1.5 rounded border border-slate-600 hover:bg-slate-700">
+          <input type="checkbox" id="isFullCharge" class="accent-emerald-500 rounded">
+          <span class="text-slate-200 text-xs font-semibold">⚡ Full Charge Reset</span>
+        </label>
+      </div>
+
+      <!-- Optional Actual kWh Meter Reading Input -->
+      <div id="actualKwhContainer" class="hidden text-xs pt-1">
+        <label class="text-slate-400">Actual Meter kWh <span class="text-slate-500 font-normal">(Optional — overwrites estimated kWh)</span></label>
+        <input type="number" id="actualKwh" placeholder="e.g. 2.85" step="0.01" min="0" class="w-full bg-slate-900 border border-emerald-500/50 rounded p-2 text-sm text-emerald-400 font-semibold placeholder:text-slate-600">
+      </div>
+
+      <div id="bmsWarning" class="hidden p-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs rounded">
+        ⚠️ <strong>BMS Imbalance Alert:</strong> Pack delta ≥ 5%. Charge to 100% to balance.
+      </div>
+
+      <div class="grid grid-cols-5 gap-1 pt-2 border-t border-slate-700 text-center text-xs">
+        <div class="bg-slate-900 p-1.5 rounded">
+          <span class="block text-slate-400 text-[9px]">Trip</span>
+          <span id="tripDist" class="text-xs font-bold text-slate-200">0.00 km</span>
+        </div>
+        <div class="bg-slate-900 p-1.5 rounded flex flex-col justify-between">
+          <span class="block text-slate-400 text-[9px]">Eff. (%/km)</span>
+          <span id="pctPerKm" class="text-xs font-bold text-slate-200">0.00%</span>
+          <span id="effBenchmarkBadge" class="text-[8px] font-bold mt-0.5 px-1 rounded-sm bg-slate-800 text-slate-400">—</span>
+        </div>
+        <div class="bg-slate-900 p-1.5 rounded">
+          <span class="block text-slate-400 text-[9px]">Charge Cost</span>
+          <span id="chargeCost" class="text-xs font-bold text-emerald-400">₱0.00</span>
+        </div>
+        <div class="bg-slate-900 p-1.5 rounded">
+          <span class="block text-slate-400 text-[9px]">Cons. Cost</span>
+          <span id="consumptionCost" class="text-xs font-bold text-sky-400">₱0.00</span>
+        </div>
+        <div class="bg-slate-900 p-1.5 rounded">
+          <span class="block text-slate-400 text-[9px]">Cost Rate</span>
+          <span id="costPerKm" class="text-xs font-bold text-amber-400">₱0.00/km</span>
+        </div>
+      </div>
+
+      <button onclick="saveLogEntry()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg text-sm transition">
+        💾 Log Ride & Charge Event
+      </button>
+    </section>
+  </div>
+
+  <!-- TAB 2: HISTORY & FLEET DATA -->
+  <div id="tabContentHistory" class="hidden space-y-4">
+    <!-- Fleet Aggregates Summary Bar (Tab 2) -->
+    <section class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <h2 class="font-bold text-slate-300 text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5">📊 Fleet Aggregates</h2>
+      <div class="grid grid-cols-4 gap-1.5 text-center text-xs">
+        <div class="bg-slate-900/60 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[10px]">Total Dist</span>
+          <span class="totalDistanceVal text-xs font-bold text-emerald-400">0.00 km</span>
+        </div>
+        <div class="bg-slate-900/60 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[10px]">Total Consumed</span>
+          <span class="totalConsCostVal text-xs font-bold text-sky-400">₱0.00</span>
+        </div>
+        <div class="bg-slate-900/60 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[10px]">Avg Efficiency</span>
+          <span class="avgEffVal text-xs font-bold text-emerald-400">0.00 %/km</span>
+        </div>
+        <div class="bg-slate-900/60 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[10px]">Avg Cost Rate</span>
+          <span class="avgCostPerKmVal text-xs font-bold text-amber-400">₱0.00/km</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Monthly Spend Summary Breakdown -->
+    <section class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <h2 class="font-bold text-slate-300 text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5">🗓️ Monthly Breakdown</h2>
+      <div id="monthlyBreakdown" class="space-y-1.5 text-xs">
+        <!-- Dynamic Monthly Rows -->
+      </div>
+    </section>
+
+    <!-- History Log Table -->
+    <section class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="font-bold text-emerald-400 text-sm flex items-center gap-1.5">📜 Trip & Charge Database</h2>
+        <button onclick="clearHistory()" class="text-xs text-rose-400 hover:underline">Clear Database</button>
+      </div>
+
+      <div class="space-y-2 max-h-80 overflow-y-auto text-xs" id="historyLog">
+        <!-- Dynamic Log Cards injected here -->
+      </div>
+    </section>
+  </div>
+
+  <!-- TAB 3: ANALYTICS CHARTS -->
+  <div id="tabContentChart" class="hidden space-y-4">
+    <section class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <h2 class="font-bold text-emerald-400 text-sm mb-1">⚡ Efficiency & Cost Rate Trends</h2>
+      <p class="text-xs text-slate-400 mb-3">Comparison of energy consumption efficiency vs financial rate per km.</p>
+      
+      <div class="relative h-56 w-full">
+        <canvas id="efficiencyChart"></canvas>
+      </div>
+    </section>
+
+    <section class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <h2 class="font-bold text-sky-400 text-sm mb-1">📍 Trip Distance Log</h2>
+      <p class="text-xs text-slate-400 mb-3">Individual distance covered per recorded ride.</p>
+      
+      <div class="relative h-48 w-full">
+        <canvas id="distanceChart"></canvas>
+      </div>
+    </section>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let efficiencyChartInstance = null;
+  let distanceChartInstance = null;
+
+  function toggleGuide() {
+    $('guideModal').classList.toggle('hidden');
+  }
+
+  function showToast(message) {
+    const toast = $('toast');
+    $('toastMsg').innerText = message;
+    toast.classList.remove('opacity-0');
+    toast.classList.add('opacity-100', '-translate-y-1');
+
+    setTimeout(() => {
+      toast.classList.remove('opacity-100', '-translate-y-1');
+      toast.classList.add('opacity-0');
+    }, 2500);
+  }
+
+  function switchTab(tab) {
+    const activeClass = "py-2 text-[11px] font-bold rounded-md transition text-emerald-400 bg-slate-900 border border-slate-700";
+    const inactiveClass = "py-2 text-[11px] font-bold rounded-md transition text-slate-400 hover:text-slate-200";
+
+    $('tabContentCalc').classList.add('hidden');
+    $('tabContentHistory').classList.add('hidden');
+    $('tabContentChart').classList.add('hidden');
+
+    $('tabBtnCalc').className = inactiveClass;
+    $('tabBtnHistory').className = inactiveClass;
+    $('tabBtnChart').className = inactiveClass;
+
+    if (tab === 'calc') {
+      $('tabContentCalc').classList.remove('hidden');
+      $('tabBtnCalc').className = activeClass;
+    } else if (tab === 'history') {
+      $('tabContentHistory').classList.remove('hidden');
+      $('tabBtnHistory').className = activeClass;
+      renderHistory();
+    } else if (tab === 'chart') {
+      $('tabContentChart').classList.remove('hidden');
+      $('tabBtnChart').className = activeClass;
+      renderChart();
+    }
+  }
+
+  function getLogs() {
+    return JSON.parse(localStorage.getItem('chargetracker_history_db') || '[]');
+  }
+
+  function getBaselineBatteryPct() {
+    const logs = getLogs();
+    if (logs.length === 0) return 100;
+
+    const lastLog = logs[0];
+    if (lastLog.isFullCharge) return 100;
+
+    return lastLog.endAvgPct !== undefined ? parseFloat(lastLog.endAvgPct) : 100;
+  }
+
+  function getBaselineOdo() {
+    const logs = getLogs();
+    if (logs.length === 0) {
+      return parseFloat($('configBaselineOdo').value) || 0;
+    }
+    return logs[0].odo !== undefined ? parseFloat(logs[0].odo) : 0;
+  }
+
+  function adjustPack(id, delta) {
+    if ($(id).disabled) return;
+    let currentVal = parseFloat($(id).value) || 0;
+    let newVal = Math.min(100, Math.max(0, currentVal + delta));
+    $(id).value = newVal;
+    saveInputState();
+    calculate();
+  }
+
+  function getEfficiencyStyle(eff) {
+    if (eff <= 0 || isNaN(eff)) {
+      return { border: 'border-slate-700', text: 'text-slate-400', bg: 'bg-slate-800', label: '—' };
+    }
+    if (eff < 1.2) {
+      return { border: 'border-l-4 border-l-emerald-500 border-slate-700', text: 'text-emerald-400', bg: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30', label: 'Great (Eco)' };
+    }
+    if (eff <= 1.8) {
+      return { border: 'border-l-4 border-l-amber-500 border-slate-700', text: 'text-amber-400', bg: 'bg-amber-500/10 text-amber-400 border border-amber-500/30', label: 'Normal' };
+    }
+    return { border: 'border-l-4 border-l-rose-500 border-slate-700', text: 'text-rose-400', bg: 'bg-rose-500/10 text-rose-400 border border-rose-500/30', label: 'High Draw' };
+  }
+
+  function handlePackModeChange() {
+    const mode = $('packMode').value;
+    if (mode === '1') {
+      $('capacity').value = '1.5';
+      $('packBContainer').classList.add('hidden');
+      $('packInputsGrid').classList.replace('grid-cols-2', 'grid-cols-1');
+      $('packALabel').innerText = 'Battery %';
+    } else {
+      $('capacity').value = '3.0';
+      $('packBContainer').classList.remove('hidden');
+      $('packInputsGrid').classList.replace('grid-cols-1', 'grid-cols-2');
+      $('packALabel').innerText = 'Pack A %';
+    }
+    saveInputState();
+    calculate();
+  }
+
+  function handleFullChargeToggle() {
+    const isFull = $('isFullCharge').checked;
+    
+    if (isFull) {
+      $('packA').value = 100;
+      $('packB').value = 100;
+      $('currOdo').value = $('prevOdo').value;
+
+      $('packA').disabled = true;
+      $('packB').disabled = true;
+      $('currOdo').disabled = true;
+      $('prevOdo').disabled = false;
+
+      $('packA').classList.add('opacity-50', 'cursor-not-allowed');
+      $('packB').classList.add('opacity-50', 'cursor-not-allowed');
+      $('currOdo').classList.add('opacity-50', 'cursor-not-allowed');
+      $('prevOdo').classList.remove('opacity-50', 'cursor-not-allowed');
+
+      $('actualKwhContainer').classList.remove('hidden');
+    } else {
+      $('prevOdo').value = getBaselineOdo();
+      
+      $('packA').disabled = false;
+      $('packB').disabled = false;
+      $('currOdo').disabled = false;
+      $('prevOdo').disabled = true;
+
+      $('packA').classList.remove('opacity-50', 'cursor-not-allowed');
+      $('packB').classList.remove('opacity-50', 'cursor-not-allowed');
+      $('currOdo').classList.remove('opacity-50', 'cursor-not-allowed');
+      $('prevOdo').classList.add('opacity-50', 'cursor-not-allowed');
+
+      $('actualKwhContainer').classList.add('hidden');
+      $('actualKwh').value = '';
+    }
+    saveInputState();
+    calculate();
+  }
+
+  function calculate() {
+    const mode = $('packMode').value;
+    const capacity = parseFloat($('capacity').value) || (mode === '1' ? 1.5 : 3.0);
+    const eff = (parseFloat($('efficiency').value) || 88) / 100;
+    const rate = parseFloat($('rate').value) || 15.97;
+    const isFull = $('isFullCharge').checked;
+
+    const actualKwhInput = parseFloat($('actualKwh').value);
+    const hasActualKwh = isFull && !isNaN(actualKwhInput) && actualKwhInput > 0;
+
+    const packA = parseFloat($('packA').value) || 0;
+    const packB = mode === '1' ? packA : (parseFloat($('packB').value) || 0);
+    const currentAvgPct = (packA + packB) / 2;
+
+    if (mode === '2' && Math.abs(packA - packB) >= 5) {
+      $('bmsWarning').classList.remove('hidden');
+    } else {
+      $('bmsWarning').classList.add('hidden');
+    }
+
+    const startPct = getBaselineBatteryPct();
+    $('startPctDisplay').innerText = `${startPct.toFixed(2)}%`;
+
+    const prevOdo = parseFloat($('prevOdo').value) || 0;
+    const currOdo = parseFloat($('currOdo').value) || 0;
+
+    if (!isFull && currOdo < prevOdo) {
+      $('tripDist').innerText = 'Err: ODO';
+      $('tripDist').className = 'text-xs font-bold text-rose-400';
+    } else {
+      $('tripDist').className = 'text-xs font-bold text-slate-200';
+    }
+
+    if (isFull) {
+      const pctCharged = Math.max(0, 100 - startPct);
+      const estChargeWallKwh = ((pctCharged / 100) * capacity) / eff;
+      const finalKwh = hasActualKwh ? actualKwhInput : estChargeWallKwh;
+      const chargeCost = finalKwh * rate;
+      
+      $('chargeCost').innerText = `₱${chargeCost.toFixed(2)}`;
+      $('consumptionCost').innerText = `₱0.00`;
+      $('tripDist').innerText = `0.00 km`;
+      $('pctPerKm').innerText = '0.00%';
+      $('costPerKm').innerText = '₱0.00/km';
+      $('effBenchmarkBadge').innerText = hasActualKwh ? '⚡ Reset (Meter)' : '⚡ Reset';
+      $('effBenchmarkBadge').className = 'text-[8px] font-bold mt-0.5 px-1 rounded-sm bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+      return;
+    }
+
+    const pctUsed = Math.max(0, startPct - currentAvgPct);
+
+    const pctNeeded = Math.max(0, 100 - currentAvgPct);
+    const estChargeWallKwh = ((pctNeeded / 100) * capacity) / eff;
+    const chargeCost = estChargeWallKwh * rate;
+    $('chargeCost').innerText = `₱${chargeCost.toFixed(2)}`;
+
+    const consWallKwh = ((pctUsed / 100) * capacity) / eff;
+    const consCost = consWallKwh * rate;
+    $('consumptionCost').innerText = `₱${consCost.toFixed(2)}`;
+
+    const dist = Math.max(0, currOdo - prevOdo);
+    if (currOdo >= prevOdo) {
+      $('tripDist').innerText = `${dist.toFixed(2)} km`;
+    }
+
+    if (dist > 0 && pctUsed > 0 && currOdo >= prevOdo) {
+      const pctPerKmVal = pctUsed / dist;
+      $('pctPerKm').innerText = `${pctPerKmVal.toFixed(2)}%`;
+      
+      const costPerKmVal = consCost / dist;
+      $('costPerKm').innerText = `₱${costPerKmVal.toFixed(2)}/km`;
+
+      const style = getEfficiencyStyle(pctPerKmVal);
+      $('effBenchmarkBadge').innerText = style.label;
+      $('effBenchmarkBadge').className = `text-[8px] font-bold mt-0.5 px-1 rounded-sm ${style.bg}`;
+    } else {
+      $('pctPerKm').innerText = '0.00%';
+      $('costPerKm').innerText = '₱0.00/km';
+      $('effBenchmarkBadge').innerText = '—';
+      $('effBenchmarkBadge').className = 'text-[8px] font-bold mt-0.5 px-1 rounded-sm bg-slate-800 text-slate-400';
+    }
+  }
+
+  function updateAggregateElements(distText, costText, effText, costRateText) {
+    document.querySelectorAll('.totalDistanceVal').forEach(el => el.innerText = distText);
+    document.querySelectorAll('.totalConsCostVal').forEach(el => el.innerText = costText);
+    document.querySelectorAll('.avgEffVal').forEach(el => el.innerText = effText);
+    document.querySelectorAll('.avgCostPerKmVal').forEach(el => el.innerText = costRateText);
+  }
+
+  function saveInputState() {
+    const state = {
+      packMode: $('packMode').value,
+      configBaselineOdo: $('configBaselineOdo').value,
+      packA: $('packA').value,
+      packB: $('packB').value,
+      prevOdo: $('prevOdo').value,
+      currOdo: $('currOdo').value,
+      actualKwh: $('actualKwh').value,
+      isFullCharge: $('isFullCharge').checked
+    };
+    localStorage.setItem('chargetracker_input_state', JSON.stringify(state));
+  }
+
+  function loadInputState() {
+    const saved = localStorage.getItem('chargetracker_input_state') || localStorage.getItem('viper_input_state');
+    if (saved) {
+      try {
+        const state = JSON.parse(saved);
+        if (state.packMode) $('packMode').value = state.packMode;
+        if (state.configBaselineOdo !== undefined) $('configBaselineOdo').value = state.configBaselineOdo;
+        if (state.packA !== undefined) $('packA').value = state.packA;
+        if (state.packB !== undefined) $('packB').value = state.packB;
+        if (state.prevOdo !== undefined) $('prevOdo').value = state.prevOdo;
+        if (state.currOdo !== undefined) $('currOdo').value = state.currOdo;
+        if (state.actualKwh !== undefined) $('actualKwh').value = state.actualKwh;
+        if (state.isFullCharge !== undefined) {
+          $('isFullCharge').checked = state.isFullCharge;
+        }
+      } catch(e) {
+        console.error("Error restoring saved input state", e);
+      }
+    }
+  }
+
+  function saveLogEntry() {
+    const mode = $('packMode').value;
+    const prevOdo = parseFloat($('prevOdo').value) || 0;
+    const currOdo = parseFloat($('currOdo').value) || 0;
+    const isFull = $('isFullCharge').checked;
+
+    if (!isFull && currOdo < prevOdo) {
+      alert("Current ODO cannot be less than Previous ODO!");
+      return;
+    }
+
+    const packA = parseFloat($('packA').value) || 0;
+    const packB = mode === '1' ? packA : (parseFloat($('packB').value) || 0);
+    const capacity = parseFloat($('capacity').value) || (mode === '1' ? 1.5 : 3.0);
+    const eff = (parseFloat($('efficiency').value) || 88) / 100;
+    const rate = parseFloat($('rate').value) || 15.97;
+
+    const actualKwhInput = parseFloat($('actualKwh').value);
+    const hasActualKwh = isFull && !isNaN(actualKwhInput) && actualKwhInput > 0;
+
+    const dist = Math.max(0, currOdo - prevOdo);
+    const startPct = getBaselineBatteryPct();
+    const currentAvgPct = isFull ? 100 : (packA + packB) / 2;
+
+    let pctUsed = 0;
+    let chargeCost = 0;
+    let consCost = 0;
+    let pctPerKm = "0.00";
+    let costPerKm = "0.00";
+
+    if (isFull) {
+      const pctCharged = Math.max(0, 100 - startPct);
+      const estChargeWallKwh = ((pctCharged / 100) * capacity) / eff;
+      const finalKwh = hasActualKwh ? actualKwhInput : estChargeWallKwh;
+      chargeCost = (finalKwh * rate).toFixed(2);
+    } else {
+      pctUsed = Math.max(0, startPct - currentAvgPct);
+      pctPerKm = dist > 0 ? (pctUsed / dist).toFixed(2) : "0.00";
+
+      const consWallKwh = ((pctUsed / 100) * capacity) / eff;
+      consCost = (consWallKwh * rate).toFixed(2);
+      costPerKm = dist > 0 ? (consCost / dist).toFixed(2) : "0.00";
+
+      const estChargeWallKwh = (((100 - currentAvgPct) / 100) * capacity) / eff;
+      chargeCost = (estChargeWallKwh * rate).toFixed(2);
+    }
+
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const entry = {
+      id: Date.now(),
+      date: now.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      monthKey: monthKey,
+      monthLabel: now.toLocaleDateString('en-PH', { month: 'short', year: 'numeric' }),
+      odo: currOdo,
+      dist: dist.toFixed(2),
+      startPct: startPct,
+      endAvgPct: currentAvgPct,
+      pctUsed: pctUsed.toFixed(2),
+      pctPerKm: pctPerKm,
+      cost: chargeCost,
+      consCost: consCost,
+      costPerKm: costPerKm,
+      actualKwh: hasActualKwh ? actualKwhInput : null,
+      isFullCharge: isFull,
+      packs: mode
+    };
+
+    const logs = getLogs();
+    logs.unshift(entry);
+    localStorage.setItem('chargetracker_history_db', JSON.stringify(logs));
+
+    $('actualKwh').value = '';
+    $('isFullCharge').checked = false;
+
+    $('prevOdo').value = currOdo;
+
+    handleFullChargeToggle();
+    saveInputState();
+    renderHistory();
+    renderChart();
+    calculate();
+
+    showToast("Ride event logged successfully!");
+  }
+
+  function deleteLog(id) {
+    const logs = getLogs().filter(log => log.id !== id);
+    localStorage.setItem('chargetracker_history_db', JSON.stringify(logs));
+    syncStateFromHistory();
+    renderHistory();
+    renderChart();
+    calculate();
+  }
+
+  function clearHistory() {
+    if (confirm("Are you sure you want to clear your entire ride history?")) {
+      localStorage.removeItem('chargetracker_history_db');
+      syncStateFromHistory();
+      renderHistory();
+      renderChart();
+      calculate();
+    }
+  }
+
+  function syncStateFromHistory() {
+    const baseline = getBaselineOdo();
+    $('configBaselineOdo').value = baseline;
+    if (!$('isFullCharge').checked) {
+      $('prevOdo').value = baseline;
+    }
+  }
+
+  function renderHistory() {
+    const logs = getLogs();
+    const container = $('historyLog');
+    const monthContainer = $('monthlyBreakdown');
+    container.innerHTML = '';
+    monthContainer.innerHTML = '';
+
+    if (logs.length === 0) {
+      container.innerHTML = `<p class="text-slate-500 text-center py-4">No rides logged yet.</p>`;
+      monthContainer.innerHTML = `<p class="text-slate-500 text-center py-2">No monthly history yet.</p>`;
+      updateAggregateElements('0.00 km', '₱0.00', '0.00 %/km', '₱0.00/km');
+      return;
+    }
+
+    let totalDist = 0;
+    let totalConsSpent = 0;
+    let effSum = 0;
+    let validEffCount = 0;
+    const monthlyData = {};
+
+    logs.forEach(log => {
+      const consCostVal = parseFloat(log.consCost !== undefined ? log.consCost : log.cost) || 0;
+      const effVal = parseFloat(log.pctPerKm) || 0;
+      const distVal = parseFloat(log.dist) || 0;
+      const costPerKmVal = parseFloat(log.costPerKm !== undefined ? log.costPerKm : (distVal > 0 ? consCostVal / distVal : 0)) || 0;
+
+      totalDist += distVal;
+      totalConsSpent += consCostVal;
+      
+      if (effVal > 0 && !log.isFullCharge) {
+        effSum += effVal;
+        validEffCount++;
+      }
+
+      const mKey = log.monthKey || 'Unknown';
+      const mLabel = log.monthLabel || 'Prior Logs';
+      if (!monthlyData[mKey]) {
+        monthlyData[mKey] = { label: mLabel, dist: 0, cost: 0 };
+      }
+      monthlyData[mKey].dist += distVal;
+      monthlyData[mKey].cost += consCostVal;
+
+      const card = document.createElement('div');
+
+      if (log.isFullCharge) {
+        const pctAdded = (100 - log.startPct).toFixed(2);
+        const meterBadge = log.actualKwh ? `<span class="text-[9px] bg-sky-500/20 text-sky-400 border border-sky-500/30 px-1.5 py-0.5 rounded font-bold">🔌 ${log.actualKwh} kWh Meter</span>` : '';
+        card.className = `bg-slate-900 p-2.5 rounded border border-emerald-500/40 flex justify-between items-center border-l-4 border-l-emerald-400`;
+        card.innerHTML = `
+          <div>
+            <div class="font-bold text-slate-200 flex items-center gap-1.5 flex-wrap">
+              ${log.date} • ${log.odo} km 
+              <span class="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded font-bold">⚡ Recharged to 100%</span>
+              ${meterBadge}
+            </div>
+            <div class="text-slate-300 mt-0.5">Charged: <span class="text-emerald-400 font-bold">+${pctAdded}%</span> | Cost: <span class="text-emerald-400 font-bold">₱${parseFloat(log.cost).toFixed(2)}</span></div>
+            <div class="text-slate-500 text-[10px]">Reset baseline battery to 100.00%</div>
+          </div>
+          <button onclick="deleteLog(${log.id})" class="text-rose-400 hover:text-rose-300 font-bold px-2 text-sm">✕</button>
+        `;
+      } else {
+        const style = getEfficiencyStyle(effVal);
+        card.className = `bg-slate-900 p-2.5 rounded border flex justify-between items-center ${style.border}`;
+        card.innerHTML = `
+          <div>
+            <div class="font-bold text-slate-200 flex items-center gap-1.5 flex-wrap">
+              ${log.date} • ${log.odo} km 
+              <span class="text-[9px] font-bold px-1.5 py-0.2 rounded ${style.bg}">${style.label}</span>
+            </div>
+            <div class="text-slate-400">Trip: <span class="text-emerald-400">${distVal.toFixed(2)} km</span> | Cons: <span class="text-sky-400">₱${consCostVal.toFixed(2)}</span> (<span class="text-amber-400">₱${costPerKmVal.toFixed(2)}/km</span>)</div>
+            <div class="text-slate-500">Eff: <span class="${style.text} font-bold">${effVal.toFixed(2)}%/km</span> (Used ${parseFloat(log.pctUsed).toFixed(2)}% from ${log.startPct.toFixed(2)}% → ${log.endAvgPct.toFixed(2)}%)</div>
+          </div>
+          <button onclick="deleteLog(${log.id})" class="text-rose-400 hover:text-rose-300 font-bold px-2 text-sm">✕</button>
+        `;
+      }
+      container.appendChild(card);
+    });
+
+    const avgEff = validEffCount > 0 ? (effSum / validEffCount).toFixed(2) : '0.00';
+    const avgCostRate = totalDist > 0 ? (totalConsSpent / totalDist).toFixed(2) : '0.00';
+
+    updateAggregateElements(
+      `${totalDist.toFixed(2)} km`,
+      `₱${totalConsSpent.toFixed(2)}`,
+      `${avgEff} %/km`,
+      `₱${avgCostRate}/km`
+    );
+
+    Object.keys(monthlyData).sort().reverse().forEach(key => {
+      const m = monthlyData[key];
+      const mCostPerKm = m.dist > 0 ? (m.cost / m.dist).toFixed(2) : '0.00';
+      const row = document.createElement('div');
+      row.className = "bg-slate-900/80 p-2 rounded border border-slate-700/80 flex justify-between items-center";
+      row.innerHTML = `
+        <span class="font-bold text-slate-300">${m.label}</span>
+        <div class="text-right">
+          <span class="text-emerald-400 font-bold">${m.dist.toFixed(2)} km</span> | 
+          <span class="text-sky-400 font-bold">₱${m.cost.toFixed(2)}</span> 
+          <span class="text-slate-500 text-[10px]">(₱${mCostPerKm}/km)</span>
+        </div>
+      `;
+      monthContainer.appendChild(row);
+    });
+  }
+
+  function renderChart() {
+    const logs = getLogs().filter(l => !l.isFullCharge).slice().reverse();
+
+    const labels = logs.map(l => l.date);
+    const distances = logs.map(l => parseFloat(l.dist).toFixed(2));
+    
+    const efficiencies = logs.map(l => {
+      const val = parseFloat(l.pctPerKm);
+      return val > 0 ? val.toFixed(2) : null;
+    });
+
+    const costRates = logs.map(l => {
+      const consCostVal = parseFloat(l.consCost !== undefined ? l.consCost : l.cost) || 0;
+      const distVal = parseFloat(l.dist) || 0;
+      const cpkVal = parseFloat(l.costPerKm !== undefined ? l.costPerKm : (distVal > 0 ? consCostVal / distVal : 0)) || 0;
+      return cpkVal > 0 ? cpkVal.toFixed(2) : null;
+    });
+
+    if (efficiencyChartInstance) efficiencyChartInstance.destroy();
+    if (distanceChartInstance) distanceChartInstance.destroy();
+
+    const ctxEff = document.getElementById('efficiencyChart').getContext('2d');
+    efficiencyChartInstance = new Chart(ctxEff, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Efficiency (%/km)',
+            data: efficiencies,
+            borderColor: '#10b981',
+            backgroundColor: '#10b981',
+            borderWidth: 2,
+            tension: 0.3,
+            yAxisID: 'yEff',
+            pointRadius: 4,
+            spanGaps: true
+          },
+          {
+            label: 'Cost Rate (₱/km)',
+            data: costRates,
+            borderColor: '#f59e0b',
+            backgroundColor: '#f59e0b',
+            borderWidth: 2,
+            borderDash: [4, 4],
+            tension: 0.3,
+            yAxisID: 'yCost',
+            pointRadius: 4,
+            spanGaps: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#94a3b8', font: { size: 10 } } }
+        },
+        scales: {
+          x: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { display: false } },
+          yEff: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            ticks: { color: '#10b981', font: { size: 10 } },
+            grid: { color: '#334155' },
+            title: { display: true, text: '%/km', color: '#10b981', font: { size: 10 } }
+          },
+          yCost: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            ticks: { color: '#f59e0b', font: { size: 10 } },
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: '₱/km', color: '#f59e0b', font: { size: 10 } }
+          }
+        }
+      }
+    });
+
+    const ctxDist = document.getElementById('distanceChart').getContext('2d');
+    distanceChartInstance = new Chart(ctxDist, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Distance (km)',
+            data: distances,
+            backgroundColor: 'rgba(56, 189, 248, 0.4)',
+            borderColor: '#38bdf8',
+            borderWidth: 1.5,
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          x: { ticks: { color: '#64748b', font: { size: 9 } }, grid: { display: false } },
+          y: {
+            ticks: { color: '#38bdf8', font: { size: 10 } },
+            grid: { color: '#334155' },
+            title: { display: true, text: 'km', color: '#38bdf8', font: { size: 10 } }
+          }
+        }
+      }
+    });
+  }
+
+  function exportCSV() {
+    const logs = getLogs();
+    if (logs.length === 0) return alert("No data to export!");
+
+    let csv = "ID,Date,ODO (km),Trip (km),Start %,End %,Used %,Percent Per KM,Charge Cost (PHP),Consumption Cost (PHP),Cost Per KM (PHP/km),Actual Meter kWh,Full Charge Reset\n";
+    logs.forEach(l => {
+      const consCostVal = l.consCost !== undefined ? l.consCost : l.cost;
+      const distVal = parseFloat(l.dist) || 0;
+      const cpkVal = l.costPerKm !== undefined ? l.costPerKm : (distVal > 0 ? consCostVal / distVal : 0);
+      const actualKwhVal = l.actualKwh ? l.actualKwh : '';
+      csv += `${l.id},"${l.date}",${l.odo},${distVal.toFixed(2)},${parseFloat(l.startPct).toFixed(2)},${parseFloat(l.endAvgPct).toFixed(2)},${parseFloat(l.pctUsed).toFixed(2)},${parseFloat(l.pctPerKm).toFixed(2)},${parseFloat(l.cost).toFixed(2)},${parseFloat(consCostVal).toFixed(2)},${parseFloat(cpkVal).toFixed(2)},"${actualKwhVal}",${l.isFullCharge ? 'Yes' : 'No'}\n`;
+    });
+
+    const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `chargetracker_logs_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function exportJSON() {
+    const logs = getLogs();
+    if (logs.length === 0) return alert("No data to backup!");
+    const jsonStr = JSON.stringify(logs, null, 2);
+    const encodedUri = encodeURI("data:application/json;charset=utf-8," + jsonStr);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `chargetracker_backup_${Date.now()}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function importJSON(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (Array.isArray(data)) {
+          localStorage.setItem('chargetracker_history_db', JSON.stringify(data));
+          syncStateFromHistory();
+          renderHistory();
+          renderChart();
+          calculate();
+          showToast("Backup restored successfully!");
+        } else {
+          alert("Invalid backup structure.");
+        }
+      } catch (err) {
+        alert("Error parsing JSON backup file.");
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  document.querySelectorAll('input:not(#isFullCharge), select').forEach(i => {
+    i.addEventListener('input', (e) => {
+      if (e.target.id === 'configBaselineOdo' && getLogs().length === 0) {
+        $('prevOdo').value = e.target.value;
+      }
+      saveInputState();
+      calculate();
+    });
+  });
+
+  $('isFullCharge').addEventListener('change', handleFullChargeToggle);
+  $('packMode').addEventListener('change', handlePackModeChange);
+
+  window.addEventListener('DOMContentLoaded', () => {
+    if (localStorage.getItem('viper_history_db') && !localStorage.getItem('chargetracker_history_db')) {
+      localStorage.setItem('chargetracker_history_db', localStorage.getItem('viper_history_db'));
+    }
+    loadInputState();
+    syncStateFromHistory();
+    handlePackModeChange();
+    handleFullChargeToggle();
+    renderHistory();
+    calculate();
+  });
+</script>
+</body>
+</html>

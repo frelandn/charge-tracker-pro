@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Charge Tracker Pro</title>
+  <meta name="theme-color" content="#10b981">
+  <link rel="manifest" href="data:application/json,{%22name%22:%22Charge%20Tracker%20Pro%22,%22short_name%22:%22ChargeTracker%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22#0f172a%22,%22theme_color%22:%22#10b981%22}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js Library CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 max-w-md mx-auto flex flex-col relative">
+
+  <!-- Toast Notification Popup -->
+  <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 bg-emerald-500 text-slate-950 font-bold px-4 py-2 rounded-lg shadow-lg opacity-0 transition-all duration-300 pointer-events-none z-50 text-xs flex items-center gap-1.5">
+    <span>✅</span> <span id="toastMsg">Data has been logged!</span>
+  </div>
+
+  <!-- User Guide Modal Overlay -->
+  <div id="guideModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl">
+      <div class="p-4 border-b border-slate-700 flex justify-between items-center">
+        <h2 class="text-sm font-bold text-emerald-400 flex items-center gap-1.5">📖 Charge Tracker Pro User Guide</h2>
+        <button onclick="UI.toggleGuide()" class="text-slate-400 hover:text-slate-200 font-bold text-base">✕</button>
+      </div>
+      <div class="p-4 overflow-y-auto space-y-4 text-xs text-slate-300">
+        
+        <section class="space-y-1">
+          <h3 class="font-bold text-slate-100 text-xs">🚀 1. System Configurations</h3>
+          <p class="text-slate-400">Tap <span class="text-emerald-400 font-semibold">⚙️ System Configurations</span> on the Ride Log tab to customize:</p>
+          <ul class="list-disc list-inside space-y-0.5 text-slate-400 pl-1">
+            <li><strong class="text-slate-200">Battery Setup:</strong> Choose 1 or 2 Battery Packs.</li>
+            <li><strong class="text-slate-200">Baseline ODO:</strong> Your starting odometer reading.</li>
+            <li><strong class="text-slate-200">Charger & Rate:</strong> Input wattage and local ₱/kWh electricity rate.</li>
+          </ul>
+        </section>
+
+        <section class="space-y-1 border-t border-slate-800 pt-3">
+          <h3 class="font-bold text-slate-100 text-xs">🔋 2. Logging Rides & Recharges</h3>
+          <p><strong class="text-emerald-400">Regular Ride:</strong> Enter ending battery % for Pack A/B and Current ODO. Review calculated trip stats and tap <span class="text-emerald-400 font-semibold">💾 Log Ride & Charge Event</span>.</p>
+          <p><strong class="text-emerald-400">Full Recharge:</strong> Check <span class="text-emerald-400 font-semibold">⚡ Full Charge Reset</span>. Optionally enter actual meter kWh, then log. Baseline battery resets to 100% for next trip.</p>
+        </section>
+
+        <section class="space-y-1 border-t border-slate-800 pt-3">
+          <h3 class="font-bold text-slate-100 text-xs">⚠️ 3. BMS Imbalance Alert</h3>
+          <p class="text-slate-400">Appears if Pack A and Pack B differ by <strong class="text-amber-400">5% or more</strong>. Perform a 100% full recharge to re-balance battery cells.</p>
+        </section>
+
+        <section class="space-y-1 border-t border-slate-800 pt-3">
+          <h3 class="font-bold text-slate-100 text-xs">📊 4. History & Analytics</h3>
+          <p class="text-slate-400"><strong class="text-slate-200">History Tab:</strong> Review aggregate stats, monthly breakdowns, and delete entries if needed.</p>
+          <p class="text-slate-400"><strong class="text-slate-200">Analytics Tab:</strong> View trend graphs for efficiency (%/km) and trip distances.</p>
+        </section>
+
+        <section class="space-y-1 border-t border-slate-800 pt-3">
+          <h3 class="font-bold text-slate-100 text-xs">💾 5. Data Backup & Restore</h3>
+          <p class="text-slate-400">Use <strong class="text-amber-400">📂 Restore</strong> to load past backup files, <strong class="text-slate-200">💾 Backup</strong> to save JSON database copies, or <strong class="text-emerald-400">📥 CSV</strong> for Excel spreadsheets.</p>
+        </section>
+
+      </div>
+      <div class="p-3 border-t border-slate-800 text-center">
+        <button onclick="UI.toggleGuide()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 px-6 rounded-lg text-xs transition">Got it!</button>
+      </div>
+    </div>
+  </div>
+
+  <header class="mb-3 border-b border-slate-700 pb-3 flex flex-col items-center text-center gap-2">
+    <div>
+      <h1 class="text-xl font-bold text-emerald-400">⚡ Charge Tracker Pro</h1>
+      <p class="text-xs text-slate-400"> By: Daily E-Ride </p>
+    </div>
+  </header>
+
+  <!-- 3-Column Navigation Tabs -->
+  <nav class="grid grid-cols-3 gap-1 mb-4 bg-slate-800/80 p-1 rounded-lg border border-slate-700">
+    <button id="tabBtnCalc" onclick="UI.switchTab('calc')" class="py-2 text-[11px] font-bold rounded-md transition text-emerald-400 bg-slate-900 border border-slate-700">
+      🔋 Ride Log
+    </button>
+    <button id="tabBtnHistory" onclick="UI.switchTab('history')" class="py-2 text-[11px] font-bold rounded-md transition text-slate-400 hover:text-slate-200">
+      📊 History & Fleet
+    </button>
+    <button id="tabBtnChart" onclick="UI.switchTab('chart')" class="py-2 text-[11px] font-bold rounded-md transition text-slate-400 hover:text-slate-200">
+      📈 Analytics
+    </button>
+  </nav>
+
+  <!-- TAB 1: RIDE LOG & CALCULATOR -->
+  <div id="tabContentCalc" class="space-y-4">
+
+    <!-- Scooter Config Settings -->
+    <details class="bg-slate-800 rounded-lg p-3 border border-slate-700">
+      <summary class="font-semibold text-slate-300 cursor-pointer text-xs">⚙️ System Configurations</summary>
+      <div class="grid grid-cols-2 gap-2 mt-2 text-xs">
+        <div class="col-span-2 flex justify-center items-center gap-1.5 whitespace-nowrap overflow-x-auto py-1">
+          <button onclick="UI.toggleGuide()" class="bg-slate-800 border border-slate-600 text-[11px] text-sky-400 px-2 py-1 rounded hover:bg-slate-700">
+            ❓ Guide
+          </button>
+          <input type="file" id="importFile" accept=".json" class="hidden" onchange="Data.importJSON(event)">
+          <button onclick="document.getElementById('importFile').click()" class="bg-slate-800 border border-slate-600 text-[11px] text-amber-400 px-2 py-1 rounded hover:bg-slate-700">
+            📂 Restore
+          </button>
+          <button onclick="Data.exportJSON()" class="bg-slate-800 border border-slate-600 text-[11px] text-slate-300 px-2 py-1 rounded hover:bg-slate-700">
+            💾 Backup
+          </button>
+          <button onclick="Data.exportCSV()" class="bg-slate-800 border border-slate-600 text-[11px] text-emerald-400 px-2 py-1 rounded hover:bg-slate-700">
+            📥 CSV
+          </button>
+        </div>
+        <div class="col-span-2">
+          <label class="text-slate-400">Battery Setup</label>
+          <select id="packMode" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-emerald-400 font-bold">
+            <option value="2">2 Battery Packs (3.0 kWh)</option>
+            <option value="1">1 Battery Pack (1.5 kWh)</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-slate-400">Baseline ODO (km)</label>
+          <input type="number" id="configBaselineOdo" value="214.00" step="0.1" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-emerald-400 font-semibold">
+        </div>
+        <div>
+          <label class="text-slate-400">Capacity (kWh)</label>
+          <input type="number" id="capacity" value="3.0" step="0.1" readonly class="w-full bg-slate-900/50 text-slate-400 border border-slate-700 rounded p-1.5 cursor-not-allowed">
+        </div>
+        <div>
+          <label class="text-slate-400">Charger (W)</label>
+          <input type="number" id="chargerW" value="400" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-emerald-400">
+        </div>
+        <div>
+          <label class="text-slate-400">Efficiency (%)</label>
+          <input type="number" id="efficiency" value="88" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-emerald-400">
+        </div>
+        <div class="col-span-2">
+          <label class="text-slate-400">Rate (₱/kWh)</label>
+          <input type="number" id="rate" value="15.97" step="0.01" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-emerald-400">
+        </div>
+      </div>
+    </details>
+      
+    <!-- Fleet Aggregates Summary Bar (Tab 1) -->
+    <section class="bg-slate-800 rounded-lg p-3 border border-slate-700">
+      <h2 class="font-bold text-slate-300 text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5">📊 Fleet Aggregates</h2>
+      <div class="grid grid-cols-4 gap-1 text-center text-xs">
+        <div class="bg-slate-900/80 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[9px]">Total Dist</span>
+          <span class="totalDistanceVal text-xs font-bold text-emerald-400">0.00 km</span>
+        </div>
+        <div class="bg-slate-900/80 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[9px]">Total Consumed</span>
+          <span class="totalConsCostVal text-xs font-bold text-sky-400">₱0.00</span>
+        </div>
+        <div class="bg-slate-900/80 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[9px]">Avg Efficiency</span>
+          <span class="avgEffVal text-xs font-bold text-emerald-400">0.00 %/km</span>
+        </div>
+        <div class="bg-slate-900/80 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[9px]">Avg Cost Rate</span>
+          <span class="avgCostPerKmVal text-xs font-bold text-amber-400">₱0.00/km</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Real-time Calculator Section -->
+    <section class="bg-slate-800 rounded-lg p-4 border border-slate-700 space-y-3">
+      <h2 class="font-bold text-emerald-400 text-sm">🔋 Current Ride & Charge Calculator</h2>
+      
+      <!-- Battery Input Area -->
+      <div id="packInputsGrid" class="grid grid-cols-2 gap-2 text-xs">
+        <div id="packAContainer">
+          <label id="packALabel" class="text-slate-400">Pack A %</label>
+          <input type="number" id="packA" value="34" min="0" max="100" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm">
+          
+          <!-- Quick Controls Pack A -->
+          <div class="flex gap-1 mt-1.5">
+            <button type="button" onclick="Calculator.adjustPack('packA', -5)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">-5%</button>
+            <button type="button" onclick="Calculator.adjustPack('packA', -1)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">-1%</button>
+            <button type="button" onclick="Calculator.adjustPack('packA', 1)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">+1%</button>
+            <button type="button" onclick="Calculator.adjustPack('packA', 5)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">+5%</button>
+          </div>
+        </div>
+
+        <div id="packBContainer">
+          <label class="text-slate-400">Pack B %</label>
+          <input type="number" id="packB" value="34" min="0" max="100" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm">
+          
+          <!-- Quick Controls Pack B -->
+          <div class="flex gap-1 mt-1.5">
+            <button type="button" onclick="Calculator.adjustPack('packB', -5)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">-5%</button>
+            <button type="button" onclick="Calculator.adjustPack('packB', -1)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">-1%</button>
+            <button type="button" onclick="Calculator.adjustPack('packB', 1)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">+1%</button>
+            <button type="button" onclick="Calculator.adjustPack('packB', 5)" class="bg-slate-700 hover:bg-slate-600 px-1.5 py-0.5 rounded text-[10px] text-slate-300 font-semibold flex-1">+5%</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 text-xs pt-1">
+        <div>
+          <label class="text-slate-400">Prev ODO (km)</label>
+          <input type="number" id="prevOdo" value="214.00" step="0.1" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm">
+        </div>
+        <div>
+          <label class="text-slate-400">Current ODO (km)</label>
+          <input type="number" id="currOdo" value="237.00" step="0.1" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm">
+        </div>
+      </div>
+
+      <div class="bg-slate-900/80 p-2.5 rounded border border-slate-700/80 text-xs flex justify-between items-center">
+        <div>
+          <span class="block text-slate-400">Baseline Starting Battery</span>
+          <span id="startPctDisplay" class="text-emerald-400 font-bold">100.00%</span>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer bg-slate-800 px-2.5 py-1.5 rounded border border-slate-600 hover:bg-slate-700">
+          <input type="checkbox" id="isFullCharge" class="accent-emerald-500 rounded">
+          <span class="text-slate-200 text-xs font-semibold">⚡ Full Charge Reset</span>
+        </label>
+      </div>
+
+      <!-- Optional Actual kWh Meter Reading Input -->
+      <div id="actualKwhContainer" class="hidden text-xs pt-1">
+        <label class="text-slate-400">Actual Meter kWh <span class="text-slate-500 font-normal">(Optional — overwrites estimated kWh)</span></label>
+        <input type="number" id="actualKwh" placeholder="e.g. 2.85" step="0.01" min="0" class="w-full bg-slate-900 border border-emerald-500/50 rounded p-2 text-sm text-emerald-400 font-semibold placeholder:text-slate-600">
+      </div>
+
+      <div id="bmsWarning" class="hidden p-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs rounded">
+        ⚠️ <strong>BMS Imbalance Alert:</strong> Pack delta ≥ 5%. Charge to 100% to balance.
+      </div>
+
+      <div class="grid grid-cols-5 gap-1 pt-2 border-t border-slate-700 text-center text-xs">
+        <div class="bg-slate-900 p-1.5 rounded">
+          <span class="block text-slate-400 text-[9px]">Trip</span>
+          <span id="tripDist" class="text-xs font-bold text-slate-200">0.00 km</span>
+        </div>
+        <div class="bg-slate-900 p-1.5 rounded flex flex-col justify-between">
+          <span class="block text-slate-400 text-[9px]">Eff. (%/km)</span>
+          <span id="pctPerKm" class="text-xs font-bold text-slate-200">0.00%</span>
+          <span id="effBenchmarkBadge" class="text-[8px] font-bold mt-0.5 px-1 rounded-sm bg-slate-800 text-slate-400">—</span>
+        </div>
+        <div class="bg-slate-900 p-1.5 rounded">
+          <span class="block text-slate-400 text-[9px]">Charge Cost</span>
+          <span id="chargeCost" class="text-xs font-bold text-emerald-400">₱0.00</span>
+        </div>
+        <div class="bg-slate-900 p-1.5 rounded">
+          <span class="block text-slate-400 text-[9px]">Cons. Cost</span>
+          <span id="consumptionCost" class="text-xs font-bold text-sky-400">₱0.00</span>
+        </div>
+        <div class="bg-slate-900 p-1.5 rounded">
+          <span class="block text-slate-400 text-[9px]">Cost Rate</span>
+          <span id="costPerKm" class="text-xs font-bold text-amber-400">₱0.00/km</span>
+        </div>
+      </div>
+
+      <button onclick="Calculator.saveLogEntry()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg text-sm transition">
+        💾 Log Ride & Charge Event
+      </button>
+    </section>
+  </div>
+
+  <!-- TAB 2: HISTORY & FLEET DATA -->
+  <div id="tabContentHistory" class="hidden space-y-4">
+    <!-- Fleet Aggregates Summary Bar (Tab 2) -->
+    <section class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <h2 class="font-bold text-slate-300 text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5">📊 Fleet Aggregates</h2>
+      <div class="grid grid-cols-4 gap-1.5 text-center text-xs">
+        <div class="bg-slate-900/60 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[10px]">Total Dist</span>
+          <span class="totalDistanceVal text-xs font-bold text-emerald-400">0.00 km</span>
+        </div>
+        <div class="bg-slate-900/60 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[10px]">Total Consumed</span>
+          <span class="totalConsCostVal text-xs font-bold text-sky-400">₱0.00</span>
+        </div>
+        <div class="bg-slate-900/60 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[10px]">Avg Efficiency</span>
+          <span class="avgEffVal text-xs font-bold text-emerald-400">0.00 %/km</span>
+        </div>
+        <div class="bg-slate-900/60 p-2 rounded border border-slate-700">
+          <span class="block text-slate-400 text-[10px]">Avg Cost Rate</span>
+          <span class="avgCostPerKmVal text-xs font-bold text-amber-400">₱0.00/km</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Monthly Spend Summary Breakdown -->
+    <section class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <h2 class="font-bold text-slate-300 text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5">🗓️ Monthly Breakdown</h2>
+      <div id="monthlyBreakdown" class="space-y-1.5 text-xs">
+        <!-- Dynamic Monthly Rows -->
+      </div>
+    </section>
+
+    <!-- History Log Table -->
+    <section class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="font-bold text-emerald-400 text-sm flex items-center gap-1.5">📜 Trip & Charge Database</h2>
+        <button onclick="Data.clearHistory()" class="text-xs text-rose-400 hover:underline">Clear Database</button>
+      </div>
+
+      <div class="space-y-2 max-h-80 overflow-y-auto text-xs" id="historyLog">
+        <!-- Dynamic Log Cards injected here -->
+      </div>
+    </section>
+  </div>
+
+  <!-- TAB 3: ANALYTICS CHARTS -->
+  <div id="tabContentChart" class="hidden space-y-4">
+    <section class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <h2 class="font-bold text-emerald-400 text-sm mb-1">⚡ Efficiency & Cost Rate Trends</h2>
+      <p class="text-xs text-slate-400 mb-3">Comparison of energy consumption efficiency vs financial rate per km.</p>
+      
+      <div class="relative h-56 w-full">
+        <canvas id="efficiencyChart"></canvas>
+      </div>
+    </section>
+
+    <section class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+      <h2 class="font-bold text-sky-400 text-sm mb-1">📍 Trip Distance Log</h2>
+      <p class="text-xs text-slate-400 mb-3">Individual distance covered per recorded ride.</p>
+      
+      <div class="relative h-48 w-full">
+        <canvas id="distanceChart"></canvas>
+      </div>
+    </section>
+  </div>
+
+  <!-- Application Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/calculator.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
